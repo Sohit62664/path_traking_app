@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Mobile Motion Tracker</title>
+<title>Mobile Path Tracker</title>
 
 <style>
   body {
+    margin: 0;
     background: #111;
     color: white;
     text-align: center;
@@ -13,76 +14,113 @@
   }
 
   button {
-    padding: 10px 20px;
+    padding: 12px 20px;
     margin: 10px;
     background: #00ffcc;
     border: none;
-    cursor: pointer;
+    font-size: 16px;
+    border-radius: 5px;
   }
 
-  textarea {
-    width: 90%;
-    height: 150px;
+  canvas {
     background: black;
-    color: #0f0;
-    padding: 10px;
+    border: 1px solid #00ffcc;
+    margin-top: 10px;
+  }
+
+  #coords {
+    margin-top: 10px;
+    font-size: 14px;
   }
 </style>
 </head>
 
 <body>
 
-<h2>📱 Mobile Path Capture</h2>
+<h2>📱 Mobile Motion Path Tracker</h2>
 
-<button onclick="startTracking()">Start</button>
-<button onclick="stopTracking()">Stop</button>
+<button onclick="startTracking()">Start Tracking</button>
+<button onclick="resetPath()">Reset</button>
 
-<br>
+<canvas id="canvas" width="300" height="500"></canvas>
 
-<textarea id="output" placeholder="Path will appear here..."></textarea>
+<div id="coords">X: 0 | Y: 0</div>
 
 <script>
+let canvas = document.getElementById("canvas");
+let ctx = canvas.getContext("2d");
+
+// Position & velocity
+let x = canvas.width / 2;
+let y = canvas.height / 2;
+
+let vx = 0;
+let vy = 0;
+
+let lastTime = null;
+
+// Draw starting point
+ctx.fillStyle = "lime";
+ctx.fillRect(x, y, 2, 2);
+
+function startTracking() {
+
+  if (typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
+          window.addEventListener("devicemotion", handleMotion);
+        }
+      });
+  } else {
+    window.addEventListener("devicemotion", handleMotion);
+  }
+}
+
 function handleMotion(event) {
-  if (!tracking) return;
 
-  // ✅ Use INCLUDING GRAVITY (works on all phones)
   let acc = event.accelerationIncludingGravity;
-  if (!acc) return;
 
-  let now = Date.now();
+  let ax = acc.x;
+  let ay = acc.y;
+
+  let currentTime = Date.now();
+
   if (!lastTime) {
-    lastTime = now;
+    lastTime = currentTime;
     return;
   }
 
-  let dt = (now - lastTime) / 1000;
-  lastTime = now;
+  let dt = (currentTime - lastTime) / 1000;
+  lastTime = currentTime;
 
-  let ax = acc.x || 0;
-  let az = acc.z || 0;
+  // Integrate acceleration → velocity
+  vx += ax * dt;
+  vy += ay * dt;
 
-  // ✅ Simple noise filter
-  if (Math.abs(ax) < 0.1) ax = 0;
-  if (Math.abs(az) < 0.1) az = 0;
+  // Integrate velocity → position
+  x += vx * dt * 50;
+  y += vy * dt * 50;
 
-  // ✅ Damping
-  const damping = 0.9;
+  // Boundary check
+  x = Math.max(0, Math.min(canvas.width, x));
+  y = Math.max(0, Math.min(canvas.height, y));
 
-  velocity.x = (velocity.x + ax * dt) * damping;
-  velocity.z = (velocity.z + az * dt) * damping;
+  // Draw path
+  ctx.fillStyle = "lime";
+  ctx.fillRect(x, y, 2, 2);
 
-  position.x += velocity.x * dt;
-  position.z += velocity.z * dt;
+  // Display coordinates
+  document.getElementById("coords").innerText =
+    `X: ${x.toFixed(2)} | Y: ${y.toFixed(2)}`;
+}
 
-  // ✅ Save ONLY every 200ms (important)
-  if (!window.lastSaveTime) window.lastSaveTime = 0;
-
-  if (now - window.lastSaveTime > 200) {
-    path.push([position.x, 0, position.z]);
-    window.lastSaveTime = now;
-
-    document.getElementById("output").value = JSON.stringify(path);
-  }
+function resetPath() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  x = canvas.width / 2;
+  y = canvas.height / 2;
+  vx = 0;
+  vy = 0;
 }
 </script>
 
