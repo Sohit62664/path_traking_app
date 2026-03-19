@@ -1,3 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mobile Path Tracker</title>
+
+<style>
+  body {
+    margin: 0;
+    background: #111;
+    color: white;
+    font-family: Arial;
+    text-align: center;
+  }
+
+  textarea {
+    width: 90%;
+    height: 120px;
+    margin: 10px;
+    background: #000;
+    color: #0f0;
+    border: 1px solid #00ffcc;
+    padding: 10px;
+  }
+
+  button {
+    padding: 10px 20px;
+    margin: 5px;
+    background: #00ffcc;
+    border: none;
+    cursor: pointer;
+  }
+
+  canvas {
+    background: black;
+    border: 2px solid #00ffcc;
+  }
+</style>
+</head>
+
+<body>
+
+<h2>📍 Mobile Path Tracker</h2>
+
+<textarea id="input">
+[[0,0,0],[1,0,1],[2,0,2]]
+</textarea>
+
+<br>
+<button onclick="startDrawing()">Start Tracking</button>
+<button onclick="reset()">Reset</button>
+
+<br><br>
+
+<canvas id="canvas" width="600" height="600"></canvas>
+
 <script>
 let lastSaved = {x: 0, z: 0};
 let lastSaveTime = 0;
@@ -55,3 +111,6 @@ function handleMotion(event) {
   }
 }
 </script>
+
+</body>
+</html>
