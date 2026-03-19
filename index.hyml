@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mobile Motion Tracker</title>
+
+<style>
+  body {
+    background: #111;
+    color: white;
+    text-align: center;
+    font-family: Arial;
+  }
+
+  button {
+    padding: 10px 20px;
+    margin: 10px;
+    background: #00ffcc;
+    border: none;
+    cursor: pointer;
+  }
+
+  textarea {
+    width: 90%;
+    height: 150px;
+    background: black;
+    color: #0f0;
+    padding: 10px;
+  }
+</style>
+</head>
+
+<body>
+
+<h2>📱 Mobile Path Capture</h2>
+
+<button onclick="startTracking()">Start</button>
+<button onclick="stopTracking()">Stop</button>
+
+<br>
+
+<textarea id="output" placeholder="Path will appear here..."></textarea>
+
+<script>
+let tracking = false;
+let path = [];
+let velocity = {x: 0, z: 0};
+let position = {x: 0, z: 0};
+let lastTime = null;
+
+// ===== START =====
+async function startTracking() {
+  path = [];
+  velocity = {x: 0, z: 0};
+  position = {x: 0, z: 0};
+  lastTime = null;
+
+  // iOS permission
+  if (typeof DeviceMotionEvent.requestPermission === 'function') {
+    let permission = await DeviceMotionEvent.requestPermission();
+    if (permission !== 'granted') {
+      alert("Permission denied");
+      return;
+    }
+  }
+
+  tracking = true;
+  window.addEventListener("devicemotion", handleMotion);
+}
+
+// ===== STOP =====
+function stopTracking() {
+  tracking = false;
+  window.removeEventListener("devicemotion", handleMotion);
+
+  document.getElementById("output").value = JSON.stringify(path);
+}
+
+// ===== MOTION HANDLER =====
+function handleMotion(event) {
+  if (!tracking) return;
+
+  let acc = event.accelerationIncludingGravity;
+
+  if (!acc) return;
+
+  let now = Date.now();
+  if (!lastTime) {
+    lastTime = now;
+    return;
+  }
+
+  let dt = (now - lastTime) / 1000;
+  lastTime = now;
+
+  // Use X and Z axis
+  let ax = acc.x || 0;
+  let az = acc.z || 0;
+
+  // Integrate acceleration → velocity
+  velocity.x += ax * dt;
+  velocity.z += az * dt;
+
+  // Integrate velocity → position
+  position.x += velocity.x * dt;
+  position.z += velocity.z * dt;
+
+  // Store path
+  path.push([position.x, 0, position.z]);
+
+  // Show live
+  document.getElementById("output").value = JSON.stringify(path);
+}
+</script>
+
+</body>
+</html>
