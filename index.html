@@ -2,67 +2,54 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Mobile Path Tracker</title>
+<title>Mobile Motion Tracker</title>
 
 <style>
   body {
-    margin: 0;
     background: #111;
     color: white;
-    font-family: Arial;
     text-align: center;
-  }
-
-  textarea {
-    width: 90%;
-    height: 120px;
-    margin: 10px;
-    background: #000;
-    color: #0f0;
-    border: 1px solid #00ffcc;
-    padding: 10px;
+    font-family: Arial;
   }
 
   button {
     padding: 10px 20px;
-    margin: 5px;
+    margin: 10px;
     background: #00ffcc;
     border: none;
     cursor: pointer;
   }
 
-  canvas {
+  textarea {
+    width: 90%;
+    height: 150px;
     background: black;
-    border: 2px solid #00ffcc;
+    color: #0f0;
+    padding: 10px;
   }
 </style>
 </head>
 
 <body>
 
-<h2>📍 Mobile Path Tracker</h2>
+<h2>📱 Mobile Path Capture</h2>
 
-<textarea id="input">
-[[0,0,0],[1,0,1],[2,0,2]]
-</textarea>
+<button onclick="startTracking()">Start</button>
+<button onclick="stopTracking()">Stop</button>
 
 <br>
-<button onclick="startDrawing()">Start Tracking</button>
-<button onclick="reset()">Reset</button>
 
-<br><br>
-
-<canvas id="canvas" width="600" height="600"></canvas>
+<textarea id="output" placeholder="Path will appear here..."></textarea>
 
 <script>
 let lastSaved = {x: 0, z: 0};
 let lastSaveTime = 0;
+let lastStepTime = 0;
 
 function handleMotion(event) {
   if (!tracking) return;
 
-  let acc = event.acceleration; // remove gravity
-
+  let acc = event.acceleration; // ✅ remove gravity
   if (!acc) return;
 
   let now = Date.now();
@@ -74,15 +61,23 @@ function handleMotion(event) {
   let dt = (now - lastTime) / 1000;
   lastTime = now;
 
-  // ===== FILTER =====
-  function filter(a) {
-    return Math.abs(a) < 0.2 ? 0 : a;
-  }
+  // ===== TOTAL ACCELERATION MAGNITUDE =====
+  let ax = acc.x || 0;
+  let ay = acc.y || 0;
+  let az = acc.z || 0;
 
-  let ax = filter(acc.x || 0);
-  let az = filter(acc.z || 0);
+  let magnitude = Math.sqrt(ax*ax + ay*ay + az*az);
 
-  // ===== DAMPING =====
+  // ===== IGNORE SMALL NOISE =====
+  if (magnitude < 0.3) return;   // 🔥 phone is almost still
+
+  // ===== STEP DETECTION (PEAK) =====
+  const STEP_THRESHOLD = 1.2;     // adjust if needed
+  const STEP_GAP = 300;           // ms between steps
+
+  let isStep = magnitude > STEP_THRESHOLD && (now - lastStepTime > STEP_GAP);
+
+  // ===== NORMAL INTEGRATION =====
   const damping = 0.9;
 
   velocity.x = (velocity.x + ax * dt) * damping;
@@ -91,23 +86,27 @@ function handleMotion(event) {
   position.x += velocity.x * dt;
   position.z += velocity.z * dt;
 
-  // ===== SAVE CONTROL =====
+  // ===== SAVE ONLY ON STEP =====
+  if (isStep) {
+    lastStepTime = now;
 
-  const MIN_DISTANCE = 0.05;   // 🔥 adjust this (bigger = fewer points)
-  const MIN_TIME = 200;        // ms (5 points/sec approx)
+    // Save only limited samples per step
+    const MAX_POINTS_PER_STEP = 6;
 
-  let dx = position.x - lastSaved.x;
-  let dz = position.z - lastSaved.z;
-  let dist = Math.sqrt(dx*dx + dz*dz);
+    let dx = position.x - lastSaved.x;
+    let dz = position.z - lastSaved.z;
+    let dist = Math.sqrt(dx*dx + dz*dz);
 
-  if (dist > MIN_DISTANCE && (now - lastSaveTime) > MIN_TIME) {
+    if (dist > 0.05) {
+      path.push([position.x, 0, position.z]);
 
-    path.push([position.x, 0, position.z]);
+      lastSaved = {x: position.x, z: position.z};
 
-    lastSaved = {x: position.x, z: position.z};
-    lastSaveTime = now;
+      // Limit total density
+      if (path.length > 1000) path.shift();
 
-    document.getElementById("output").value = JSON.stringify(path);
+      document.getElementById("output").value = JSON.stringify(path);
+    }
   }
 }
 </script>
