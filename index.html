@@ -42,47 +42,11 @@
 <textarea id="output" placeholder="Path will appear here..."></textarea>
 
 <script>
-let tracking = false;
-let path = [];
-let velocity = {x: 0, z: 0};
-let position = {x: 0, z: 0};
-let lastTime = null;
-
-let lastSaved = {x: 0, z: 0};
-let lastStepTime = 0;
-
-// ===== START =====
-async function startTracking() {
-  path = [];
-  velocity = {x: 0, z: 0};
-  position = {x: 0, z: 0};
-  lastTime = null;
-
-  if (typeof DeviceMotionEvent.requestPermission === 'function') {
-    let permission = await DeviceMotionEvent.requestPermission();
-    if (permission !== 'granted') {
-      alert("Permission denied");
-      return;
-    }
-  }
-
-  tracking = true;
-  window.addEventListener("devicemotion", handleMotion);
-}
-
-// ===== STOP =====
-function stopTracking() {
-  tracking = false;
-  window.removeEventListener("devicemotion", handleMotion);
-
-  document.getElementById("output").value = JSON.stringify(path);
-}
-
-// ===== MOTION =====
 function handleMotion(event) {
   if (!tracking) return;
 
-  let acc = event.acceleration;
+  // ✅ Use INCLUDING GRAVITY (works on all phones)
+  let acc = event.accelerationIncludingGravity;
   if (!acc) return;
 
   let now = Date.now();
@@ -94,23 +58,14 @@ function handleMotion(event) {
   let dt = (now - lastTime) / 1000;
   lastTime = now;
 
-  // acceleration
   let ax = acc.x || 0;
-  let ay = acc.y || 0;
   let az = acc.z || 0;
 
-  let magnitude = Math.sqrt(ax*ax + ay*ay + az*az);
+  // ✅ Simple noise filter
+  if (Math.abs(ax) < 0.1) ax = 0;
+  if (Math.abs(az) < 0.1) az = 0;
 
-  // 🔥 relaxed threshold (IMPORTANT)
-  if (magnitude < 0.15) return;
-
-  // step detection (relaxed)
-  const STEP_THRESHOLD = 0.8;
-  const STEP_GAP = 250;
-
-  let isStep = magnitude > STEP_THRESHOLD && (now - lastStepTime > STEP_GAP);
-
-  // motion integration
+  // ✅ Damping
   const damping = 0.9;
 
   velocity.x = (velocity.x + ax * dt) * damping;
@@ -119,21 +74,14 @@ function handleMotion(event) {
   position.x += velocity.x * dt;
   position.z += velocity.z * dt;
 
-  // save point
-  if (isStep) {
-    lastStepTime = now;
+  // ✅ Save ONLY every 200ms (important)
+  if (!window.lastSaveTime) window.lastSaveTime = 0;
 
-    let dx = position.x - lastSaved.x;
-    let dz = position.z - lastSaved.z;
-    let dist = Math.sqrt(dx*dx + dz*dz);
+  if (now - window.lastSaveTime > 200) {
+    path.push([position.x, 0, position.z]);
+    window.lastSaveTime = now;
 
-    if (dist > 0.02) {  // smaller threshold
-      path.push([position.x, 0, position.z]);
-
-      lastSaved = {x: position.x, z: position.z};
-
-      document.getElementById("output").value = JSON.stringify(path);
-    }
+    document.getElementById("output").value = JSON.stringify(path);
   }
 }
 </script>
